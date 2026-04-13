@@ -70,30 +70,17 @@ sealed class TypeMapAssemblyEmitter
 	TypeReferenceHandle _javaPeerProxyRef;
 	TypeReferenceHandle _javaPeerProxyNonGenericRef;
 	TypeReferenceHandle _iJavaPeerableRef;
-	TypeReferenceHandle _iJavaObjectRef;
 	TypeReferenceHandle _jniHandleOwnershipRef;
 	TypeReferenceHandle _jniObjectReferenceRef;
 	TypeReferenceHandle _jniObjectReferenceOptionsRef;
 	TypeReferenceHandle _iAndroidCallableWrapperRef;
 	TypeReferenceHandle _jniEnvRef;
-	TypeReferenceHandle _javaLangObjectRef;
 	TypeReferenceHandle _systemTypeRef;
-	TypeReferenceHandle _systemArrayRef;
-	TypeReferenceHandle _systemStreamRef;
-	TypeReferenceHandle _systemXmlReaderRef;
 	TypeReferenceHandle _runtimeTypeHandleRef;
 	TypeReferenceHandle _jniTypeRef;
 	TypeReferenceHandle _trimmableNativeRegistrationRef;
 	TypeReferenceHandle _notSupportedExceptionRef;
 	TypeReferenceHandle _runtimeHelpersRef;
-	TypeReferenceHandle _inputStreamInvokerRef;
-	TypeReferenceHandle _outputStreamInvokerRef;
-	TypeReferenceHandle _inputStreamAdapterRef;
-	TypeReferenceHandle _outputStreamAdapterRef;
-	TypeReferenceHandle _xmlPullParserReaderRef;
-	TypeReferenceHandle _xmlResourceParserReaderRef;
-	TypeReferenceHandle _xmlReaderPullParserRef;
-	TypeReferenceHandle _xmlReaderResourceParserRef;
 
 	MemberReferenceHandle _baseCtorRef;
 	MemberReferenceHandle _getTypeFromHandleRef;
@@ -101,21 +88,6 @@ sealed class TypeMapAssemblyEmitter
 	MemberReferenceHandle _notSupportedExceptionCtorRef;
 	MemberReferenceHandle _jniObjectReferenceCtorRef;
 	MemberReferenceHandle _jniEnvDeleteRefRef;
-	MemberReferenceHandle _jniEnvGetStringRef;
-	MemberReferenceHandle _jniEnvGetArrayRef;
-	MemberReferenceHandle _jniEnvCopyArrayRef;
-	MemberReferenceHandle _jniEnvNewArrayRef;
-	MemberReferenceHandle _jniEnvNewStringRef;
-	MemberReferenceHandle _jniEnvToLocalJniHandleRef;
-	MemberReferenceHandle _javaLangObjectGetObjectRef;
-	MemberReferenceHandle _inputStreamInvokerFromJniHandleRef;
-	MemberReferenceHandle _outputStreamInvokerFromJniHandleRef;
-	MemberReferenceHandle _inputStreamAdapterToLocalJniHandleRef;
-	MemberReferenceHandle _outputStreamAdapterToLocalJniHandleRef;
-	MemberReferenceHandle _xmlPullParserReaderFromJniHandleRef;
-	MemberReferenceHandle _xmlResourceParserReaderFromJniHandleRef;
-	MemberReferenceHandle _xmlReaderPullParserToLocalJniHandleRef;
-	MemberReferenceHandle _xmlReaderResourceParserToLocalJniHandleRef;
 	MemberReferenceHandle _activateInstanceRef;
 	MemberReferenceHandle _withinNewObjectScopeRef;
 	MemberReferenceHandle _ucoAttrCtorRef;
@@ -174,7 +146,8 @@ sealed class TypeMapAssemblyEmitter
 
 		EmitTypeReferences ();
 		EmitMemberReferences ();
-		_exportMethodDispatchEmitter = new ExportMethodDispatchEmitter (_pe, CreateExportMethodDispatchEmitterContext ());
+		var exportMethodDispatchContext = CreateExportMethodDispatchEmitterContext ();
+		_exportMethodDispatchEmitter = new ExportMethodDispatchEmitter (_pe, exportMethodDispatchContext);
 
 		// Track wrapper method names → handles for RegisterNatives
 		var wrapperHandles = new Dictionary<string, MethodDefinitionHandle> ();
@@ -203,14 +176,10 @@ sealed class TypeMapAssemblyEmitter
 			metadata.GetOrAddString ("Java.Interop"), metadata.GetOrAddString ("JavaPeerProxy"));
 		_iJavaPeerableRef = metadata.AddTypeReference (_javaInteropRef,
 			metadata.GetOrAddString ("Java.Interop"), metadata.GetOrAddString ("IJavaPeerable"));
-		_iJavaObjectRef = metadata.AddTypeReference (_pe.MonoAndroidRef,
-			metadata.GetOrAddString ("Android.Runtime"), metadata.GetOrAddString ("IJavaObject"));
 		_jniHandleOwnershipRef = metadata.AddTypeReference (_pe.MonoAndroidRef,
 			metadata.GetOrAddString ("Android.Runtime"), metadata.GetOrAddString ("JniHandleOwnership"));
 		_jniEnvRef = metadata.AddTypeReference (_pe.MonoAndroidRef,
 			metadata.GetOrAddString ("Android.Runtime"), metadata.GetOrAddString ("JNIEnv"));
-		_javaLangObjectRef = metadata.AddTypeReference (_pe.MonoAndroidRef,
-			metadata.GetOrAddString ("Java.Lang"), metadata.GetOrAddString ("Object"));
 		_jniObjectReferenceRef = metadata.AddTypeReference (_javaInteropRef,
 			metadata.GetOrAddString ("Java.Interop"), metadata.GetOrAddString ("JniObjectReference"));
 		_jniObjectReferenceOptionsRef = metadata.AddTypeReference (_javaInteropRef,
@@ -219,13 +188,6 @@ sealed class TypeMapAssemblyEmitter
 			metadata.GetOrAddString ("Java.Interop"), metadata.GetOrAddString ("IAndroidCallableWrapper"));
 		_systemTypeRef = metadata.AddTypeReference (_pe.SystemRuntimeRef,
 			metadata.GetOrAddString ("System"), metadata.GetOrAddString ("Type"));
-		_systemArrayRef = metadata.AddTypeReference (_pe.SystemRuntimeRef,
-			metadata.GetOrAddString ("System"), metadata.GetOrAddString ("Array"));
-		_systemStreamRef = metadata.AddTypeReference (_pe.SystemRuntimeRef,
-			metadata.GetOrAddString ("System.IO"), metadata.GetOrAddString ("Stream"));
-		var systemXmlRef = _pe.FindOrAddAssemblyRef ("System.Xml.ReaderWriter");
-		_systemXmlReaderRef = metadata.AddTypeReference (systemXmlRef,
-			metadata.GetOrAddString ("System.Xml"), metadata.GetOrAddString ("XmlReader"));
 		_runtimeTypeHandleRef = metadata.AddTypeReference (_pe.SystemRuntimeRef,
 			metadata.GetOrAddString ("System"), metadata.GetOrAddString ("RuntimeTypeHandle"));
 		_jniTypeRef = metadata.AddTypeReference (_javaInteropRef,
@@ -236,22 +198,6 @@ sealed class TypeMapAssemblyEmitter
 			metadata.GetOrAddString ("System"), metadata.GetOrAddString ("NotSupportedException"));
 		_runtimeHelpersRef = metadata.AddTypeReference (_pe.SystemRuntimeRef,
 			metadata.GetOrAddString ("System.Runtime.CompilerServices"), metadata.GetOrAddString ("RuntimeHelpers"));
-		_inputStreamInvokerRef = metadata.AddTypeReference (_pe.MonoAndroidRef,
-			metadata.GetOrAddString ("Android.Runtime"), metadata.GetOrAddString ("InputStreamInvoker"));
-		_outputStreamInvokerRef = metadata.AddTypeReference (_pe.MonoAndroidRef,
-			metadata.GetOrAddString ("Android.Runtime"), metadata.GetOrAddString ("OutputStreamInvoker"));
-		_inputStreamAdapterRef = metadata.AddTypeReference (_pe.MonoAndroidRef,
-			metadata.GetOrAddString ("Android.Runtime"), metadata.GetOrAddString ("InputStreamAdapter"));
-		_outputStreamAdapterRef = metadata.AddTypeReference (_pe.MonoAndroidRef,
-			metadata.GetOrAddString ("Android.Runtime"), metadata.GetOrAddString ("OutputStreamAdapter"));
-		_xmlPullParserReaderRef = metadata.AddTypeReference (_pe.MonoAndroidRef,
-			metadata.GetOrAddString ("Android.Runtime"), metadata.GetOrAddString ("XmlPullParserReader"));
-		_xmlResourceParserReaderRef = metadata.AddTypeReference (_pe.MonoAndroidRef,
-			metadata.GetOrAddString ("Android.Runtime"), metadata.GetOrAddString ("XmlResourceParserReader"));
-		_xmlReaderPullParserRef = metadata.AddTypeReference (_pe.MonoAndroidRef,
-			metadata.GetOrAddString ("Android.Runtime"), metadata.GetOrAddString ("XmlReaderPullParser"));
-		_xmlReaderResourceParserRef = metadata.AddTypeReference (_pe.MonoAndroidRef,
-			metadata.GetOrAddString ("Android.Runtime"), metadata.GetOrAddString ("XmlReaderResourceParser"));
 
 		_jniNativeMethodRef = metadata.AddTypeReference (_javaInteropRef,
 			metadata.GetOrAddString ("Java.Interop"), metadata.GetOrAddString ("JniNativeMethod"));
@@ -306,111 +252,6 @@ sealed class TypeMapAssemblyEmitter
 					p.AddParameter ().Type ().IntPtr ();
 					p.AddParameter ().Type ().Type (_jniHandleOwnershipRef, true);
 				}));
-
-		_jniEnvGetStringRef = _pe.AddMemberRef (_jniEnvRef, "GetString",
-			sig => sig.MethodSignature ().Parameters (2,
-				rt => rt.Type ().String (),
-				p => {
-					p.AddParameter ().Type ().IntPtr ();
-					p.AddParameter ().Type ().Type (_jniHandleOwnershipRef, true);
-				}));
-
-		_jniEnvGetArrayRef = _pe.AddMemberRef (_jniEnvRef, "GetArray",
-			sig => sig.MethodSignature ().Parameters (3,
-				rt => rt.Type ().Type (_systemArrayRef, false),
-				p => {
-					p.AddParameter ().Type ().IntPtr ();
-					p.AddParameter ().Type ().Type (_jniHandleOwnershipRef, true);
-					p.AddParameter ().Type ().Type (_systemTypeRef, false);
-				}));
-
-		_jniEnvCopyArrayRef = _pe.AddMemberRef (_jniEnvRef, "CopyArray",
-			sig => sig.MethodSignature ().Parameters (3,
-				rt => rt.Void (),
-				p => {
-					p.AddParameter ().Type ().Type (_systemArrayRef, false);
-					p.AddParameter ().Type ().Type (_systemTypeRef, false);
-					p.AddParameter ().Type ().IntPtr ();
-				}));
-
-		_jniEnvNewArrayRef = _pe.AddMemberRef (_jniEnvRef, "NewArray",
-			sig => sig.MethodSignature ().Parameters (2,
-				rt => rt.Type ().IntPtr (),
-				p => {
-					p.AddParameter ().Type ().Type (_systemArrayRef, false);
-					p.AddParameter ().Type ().Type (_systemTypeRef, false);
-				}));
-
-		_jniEnvNewStringRef = _pe.AddMemberRef (_jniEnvRef, "NewString",
-			sig => sig.MethodSignature ().Parameters (1,
-				rt => rt.Type ().IntPtr (),
-				p => p.AddParameter ().Type ().String ()));
-
-		_jniEnvToLocalJniHandleRef = _pe.AddMemberRef (_jniEnvRef, "ToLocalJniHandle",
-			sig => sig.MethodSignature ().Parameters (1,
-				rt => rt.Type ().IntPtr (),
-				p => p.AddParameter ().Type ().Type (_iJavaObjectRef, false)));
-
-		_javaLangObjectGetObjectRef = _pe.AddMemberRef (_javaLangObjectRef, "GetObject",
-			sig => sig.MethodSignature ().Parameters (3,
-				rt => rt.Type ().Type (_iJavaPeerableRef, false),
-				p => {
-					p.AddParameter ().Type ().IntPtr ();
-					p.AddParameter ().Type ().Type (_jniHandleOwnershipRef, true);
-					p.AddParameter ().Type ().Type (_systemTypeRef, false);
-				}));
-
-		_inputStreamInvokerFromJniHandleRef = _pe.AddMemberRef (_inputStreamInvokerRef, "FromJniHandle",
-			sig => sig.MethodSignature ().Parameters (2,
-				rt => rt.Type ().Type (_systemStreamRef, false),
-				p => {
-					p.AddParameter ().Type ().IntPtr ();
-					p.AddParameter ().Type ().Type (_jniHandleOwnershipRef, true);
-				}));
-
-		_outputStreamInvokerFromJniHandleRef = _pe.AddMemberRef (_outputStreamInvokerRef, "FromJniHandle",
-			sig => sig.MethodSignature ().Parameters (2,
-				rt => rt.Type ().Type (_systemStreamRef, false),
-				p => {
-					p.AddParameter ().Type ().IntPtr ();
-					p.AddParameter ().Type ().Type (_jniHandleOwnershipRef, true);
-				}));
-
-		_inputStreamAdapterToLocalJniHandleRef = _pe.AddMemberRef (_inputStreamAdapterRef, "ToLocalJniHandle",
-			sig => sig.MethodSignature ().Parameters (1,
-				rt => rt.Type ().IntPtr (),
-				p => p.AddParameter ().Type ().Type (_systemStreamRef, false)));
-
-		_outputStreamAdapterToLocalJniHandleRef = _pe.AddMemberRef (_outputStreamAdapterRef, "ToLocalJniHandle",
-			sig => sig.MethodSignature ().Parameters (1,
-				rt => rt.Type ().IntPtr (),
-				p => p.AddParameter ().Type ().Type (_systemStreamRef, false)));
-
-		_xmlPullParserReaderFromJniHandleRef = _pe.AddMemberRef (_xmlPullParserReaderRef, "FromJniHandle",
-			sig => sig.MethodSignature ().Parameters (2,
-				rt => rt.Type ().Type (_systemXmlReaderRef, false),
-				p => {
-					p.AddParameter ().Type ().IntPtr ();
-					p.AddParameter ().Type ().Type (_jniHandleOwnershipRef, true);
-				}));
-
-		_xmlResourceParserReaderFromJniHandleRef = _pe.AddMemberRef (_xmlResourceParserReaderRef, "FromJniHandle",
-			sig => sig.MethodSignature ().Parameters (2,
-				rt => rt.Type ().Type (_systemXmlReaderRef, false),
-				p => {
-					p.AddParameter ().Type ().IntPtr ();
-					p.AddParameter ().Type ().Type (_jniHandleOwnershipRef, true);
-				}));
-
-		_xmlReaderPullParserToLocalJniHandleRef = _pe.AddMemberRef (_xmlReaderPullParserRef, "ToLocalJniHandle",
-			sig => sig.MethodSignature ().Parameters (1,
-				rt => rt.Type ().IntPtr (),
-				p => p.AddParameter ().Type ().Type (_systemXmlReaderRef, false)));
-
-		_xmlReaderResourceParserToLocalJniHandleRef = _pe.AddMemberRef (_xmlReaderResourceParserRef, "ToLocalJniHandle",
-			sig => sig.MethodSignature ().Parameters (1,
-				rt => rt.Type ().IntPtr (),
-				p => p.AddParameter ().Type ().Type (_systemXmlReaderRef, false)));
 
 		_activateInstanceRef = _pe.AddMemberRef (_trimmableNativeRegistrationRef, "ActivateInstance",
 			sig => sig.MethodSignature ().Parameters (2,
@@ -525,36 +366,16 @@ sealed class TypeMapAssemblyEmitter
 
 	ExportMethodDispatchEmitterContext CreateExportMethodDispatchEmitterContext ()
 	{
-		return new ExportMethodDispatchEmitterContext {
-			GetTypeFromHandleRef = _getTypeFromHandleRef,
-			JniObjectReferenceRef = _jniObjectReferenceRef,
-			IJavaObjectRef = _iJavaObjectRef,
-			JniTypeRef = _jniTypeRef,
-			JniNativeMethodRef = _jniNativeMethodRef,
-			ReadOnlySpanOpenRef = _readOnlySpanOpenRef,
-			JniEnvGetStringRef = _jniEnvGetStringRef,
-			JniEnvGetArrayRef = _jniEnvGetArrayRef,
-			JniEnvCopyArrayRef = _jniEnvCopyArrayRef,
-			JniEnvNewArrayRef = _jniEnvNewArrayRef,
-			JniEnvNewStringRef = _jniEnvNewStringRef,
-			JniEnvToLocalJniHandleRef = _jniEnvToLocalJniHandleRef,
-			JavaLangObjectGetObjectRef = _javaLangObjectGetObjectRef,
-			InputStreamInvokerFromJniHandleRef = _inputStreamInvokerFromJniHandleRef,
-			OutputStreamInvokerFromJniHandleRef = _outputStreamInvokerFromJniHandleRef,
-			InputStreamAdapterToLocalJniHandleRef = _inputStreamAdapterToLocalJniHandleRef,
-			OutputStreamAdapterToLocalJniHandleRef = _outputStreamAdapterToLocalJniHandleRef,
-			XmlPullParserReaderFromJniHandleRef = _xmlPullParserReaderFromJniHandleRef,
-			XmlResourceParserReaderFromJniHandleRef = _xmlResourceParserReaderFromJniHandleRef,
-			XmlReaderPullParserToLocalJniHandleRef = _xmlReaderPullParserToLocalJniHandleRef,
-			XmlReaderResourceParserToLocalJniHandleRef = _xmlReaderResourceParserToLocalJniHandleRef,
-			ActivateInstanceRef = _activateInstanceRef,
-			UcoAttrCtorRef = _ucoAttrCtorRef,
-			UcoAttrBlobHandle = _ucoAttrBlobHandle,
-			JniNativeMethodCtorRef = _jniNativeMethodCtorRef,
-			JniTypePeerReferenceRef = _jniTypePeerReferenceRef,
-			JniEnvTypesRegisterNativesRef = _jniEnvTypesRegisterNativesRef,
-			ReadOnlySpanOfJniNativeMethodCtorRef = _readOnlySpanOfJniNativeMethodCtorRef,
-		};
+		return ExportMethodDispatchEmitterContext.Create (
+			_pe,
+			_iJavaPeerableRef,
+			_jniHandleOwnershipRef,
+			_jniEnvRef,
+			_systemTypeRef,
+			_getTypeFromHandleRef,
+			_ucoAttrCtorRef,
+			_ucoAttrBlobHandle
+		);
 	}
 
 	ExportMethodDispatchEmitter GetExportMethodDispatchEmitter ()

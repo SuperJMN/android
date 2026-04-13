@@ -22,26 +22,13 @@ namespace Xamarin.Android.RuntimeTests
             set { logTag = value ?? DefaultLogTag; }
         }
 
-		protected NUnitInstrumentation(IntPtr handle, JniHandleOwnership transfer)
-			: base(handle, transfer)
-		{
-			if (AppContext.TryGetSwitch ("Microsoft.Android.Runtime.RuntimeFeature.TrimmableTypeMap", out bool trimmableTypeMap) && trimmableTypeMap) {
-				ExcludedCategories = ["SSL", "TrimmableIgnore"];
-
-				// Keep the temporary Java.Interop exclusions centralized here so
-				// we don't need a PR against the Java.Interop submodule.
-				ExcludedTestNames = new [] {
-					"Java.InteropTests.JavaObjectTest",
-					"Java.InteropTests.JavaObjectExtensionsTests",
-					"Java.InteropTests.InvokeVirtualFromConstructorTests",
-					"Java.InteropTests.JniPeerMembersTests",
-					"Java.InteropTests.JniTypeManagerTests",
-					"Java.InteropTests.JniValueMarshaler_object_ContractTests",
-					"Java.InteropTests.JavaExceptionTests.InnerExceptionIsNotAProxy",
-					"Java.InteropTests.JavaPeerableExtensionsTests",
-				};
-			}
-		}
+        protected NUnitInstrumentation(IntPtr handle, JniHandleOwnership transfer)
+            : base(handle, transfer)
+        {
+            if (AppContext.TryGetSwitch ("Microsoft.Android.Runtime.RuntimeFeature.TrimmableTypeMap", out bool trimmableTypeMap) && trimmableTypeMap) {
+                ExcludedCategories = ["SSL", "TrimmableIgnore"];
+            }
+        }
 
         protected override IList<TestAssemblyInfo> GetTestAssemblies()
         {
