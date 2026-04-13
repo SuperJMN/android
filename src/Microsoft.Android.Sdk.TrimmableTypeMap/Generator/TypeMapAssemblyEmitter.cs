@@ -135,7 +135,7 @@ sealed class TypeMapAssemblyEmitter
 	MemberReferenceHandle _jniEnvTypesRegisterNativesRef;
 	MemberReferenceHandle _readOnlySpanOfJniNativeMethodCtorRef;
 
-	ExportEmitter? _exportEmitter;
+	ExportMethodDispatchEmitter? _exportMethodDispatchEmitter;
 
 	/// <summary>
 	/// Creates a new emitter.
@@ -174,7 +174,7 @@ sealed class TypeMapAssemblyEmitter
 
 		EmitTypeReferences ();
 		EmitMemberReferences ();
-		_exportEmitter = new ExportEmitter (_pe, CreateExportEmitterContext ());
+		_exportMethodDispatchEmitter = new ExportMethodDispatchEmitter (_pe, CreateExportMethodDispatchEmitterContext ());
 
 		// Track wrapper method names → handles for RegisterNatives
 		var wrapperHandles = new Dictionary<string, MethodDefinitionHandle> ();
@@ -523,9 +523,9 @@ sealed class TypeMapAssemblyEmitter
 				}));
 	}
 
-	ExportEmitterContext CreateExportEmitterContext ()
+	ExportMethodDispatchEmitterContext CreateExportMethodDispatchEmitterContext ()
 	{
-		return new ExportEmitterContext {
+		return new ExportMethodDispatchEmitterContext {
 			GetTypeFromHandleRef = _getTypeFromHandleRef,
 			JniObjectReferenceRef = _jniObjectReferenceRef,
 			IJavaObjectRef = _iJavaObjectRef,
@@ -557,13 +557,29 @@ sealed class TypeMapAssemblyEmitter
 		};
 	}
 
-	ExportEmitter GetExportEmitter ()
+	ExportMethodDispatchEmitter GetExportMethodDispatchEmitter ()
 	{
-		if (_exportEmitter == null) {
-			throw new InvalidOperationException ("ExportEmitter has not been initialized.");
+		if (_exportMethodDispatchEmitter == null) {
+			throw new InvalidOperationException ("ExportMethodDispatchEmitter has not been initialized.");
 		}
 
-<<<<<<< HEAD
+		return _exportMethodDispatchEmitter;
+	}
+
+	void EmitProxyType (JavaPeerProxyData proxy, Dictionary<string, MethodDefinitionHandle> wrapperHandles)
+	{
+		var exportMethodDispatchEmitter = GetExportMethodDispatchEmitter ();
+
+		if (proxy.IsAcw) {
+			// RegisterNatives uses RVA-backed UTF-8 fields under <PrivateImplementationDetails>.
+			// Materialize those helper types before adding the proxy TypeDef, otherwise the
+			// later RegisterNatives method can be attached to the helper type instead.
+			foreach (var reg in proxy.NativeRegistrations) {
+				_pe.GetOrAddUtf8Field (reg.JniMethodName);
+				_pe.GetOrAddUtf8Field (reg.JniSignature);
+			}
+		}
+
 		var metadata = _pe.Metadata;
 		var targetTypeRef = _pe.ResolveTypeRef (proxy.TargetType);
 
@@ -596,31 +612,11 @@ sealed class TypeMapAssemblyEmitter
 						p.AddParameter ().Type ().Type (_systemTypeRef, false);
 					}));
 		}
-||||||| parent of 80ac42649 (Refactor [Export] code generation)
-		var metadata = _pe.Metadata;
-		var targetTypeRef = _pe.ResolveTypeRef (proxy.TargetType);
-		var proxyBaseType = _pe.MakeGenericTypeSpec (_javaPeerProxyRef, targetTypeRef);
-		var baseCtorRef = _pe.AddMemberRef (proxyBaseType, ".ctor",
-			sig => sig.MethodSignature (isInstanceMethod: true).Parameters (2,
-				rt => rt.Void (),
-				p => {
-					p.AddParameter ().Type ().String ();
-					p.AddParameter ().Type ().Type (_systemTypeRef, false);
-				}));
-=======
-		return _exportEmitter;
-	}
->>>>>>> 80ac42649 (Refactor [Export] code generation)
-
-	void EmitProxyType (JavaPeerProxyData proxy, Dictionary<string, MethodDefinitionHandle> wrapperHandles)
-	{
-		var exportEmitter = GetExportEmitter ();
-		var metadata = _pe.Metadata;
 		var typeDefHandle = metadata.AddTypeDefinition (
 			TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.Class,
 			metadata.GetOrAddString (proxy.Namespace),
 			metadata.GetOrAddString (proxy.TypeName),
-			_javaPeerProxyRef,
+			proxyBaseType,
 			MetadataTokens.FieldDefinitionHandle (metadata.GetRowCount (TableIndex.Field) + 1),
 			MetadataTokens.MethodDefinitionHandle (metadata.GetRowCount (TableIndex.MethodDef) + 1));
 
@@ -628,7 +624,6 @@ sealed class TypeMapAssemblyEmitter
 			metadata.AddInterfaceImplementation (typeDefHandle, _iAndroidCallableWrapperRef);
 		}
 
-<<<<<<< HEAD
 		// Self-apply: the proxy type is its own [JavaPeerProxy] attribute.
 		// This enables type.GetCustomAttribute<JavaPeerProxy>() to instantiate the proxy
 		// at runtime for AOT-safe type resolution.
@@ -639,17 +634,11 @@ sealed class TypeMapAssemblyEmitter
 
 		// .ctor — pass the resolved JNI name, (for generic-definition base) target type, and
 		// optional invoker type to the base proxy constructor.
-||||||| parent of 80ac42649 (Refactor [Export] code generation)
-		// .ctor — pass the resolved JNI name and optional invoker type to the generic base proxy
-=======
-		// .ctor — pass TargetType and InvokerType to base ctor
->>>>>>> 80ac42649 (Refactor [Export] code generation)
 		_pe.EmitBody (".ctor",
 			MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.SpecialName | MethodAttributes.RTSpecialName,
 			sig => sig.MethodSignature (isInstanceMethod: true).Parameters (0, rt => rt.Void (), p => { }),
 			encoder => {
 				encoder.OpCode (ILOpCode.Ldarg_0);
-<<<<<<< HEAD
 				encoder.LoadString (metadata.GetOrAddUserString (proxy.JniName));
 				if (proxy.IsGenericDefinition) {
 					// Non-generic base ctor signature: (string, Type, Type?). Push the open-generic
@@ -658,15 +647,6 @@ sealed class TypeMapAssemblyEmitter
 					encoder.Token (targetTypeRef);
 					encoder.Call (_getTypeFromHandleRef);
 				}
-||||||| parent of 80ac42649 (Refactor [Export] code generation)
-				encoder.LoadString (metadata.GetOrAddUserString (proxy.JniName));
-=======
-				// arg 1: typeof(TargetType)
-				encoder.OpCode (ILOpCode.Ldtoken);
-				encoder.Token (_pe.ResolveTypeRef (proxy.TargetType));
-				encoder.Call (_getTypeFromHandleRef);
-				// arg 2: typeof(InvokerType) or null
->>>>>>> 80ac42649 (Refactor [Export] code generation)
 				if (proxy.InvokerType != null) {
 					encoder.OpCode (ILOpCode.Ldtoken);
 					encoder.Token (_pe.ResolveTypeRef (proxy.InvokerType));
@@ -674,7 +654,7 @@ sealed class TypeMapAssemblyEmitter
 				} else {
 					encoder.OpCode (ILOpCode.Ldnull);
 				}
-				encoder.Call (_baseCtorRef);
+				encoder.Call (baseCtorRef);
 				encoder.OpCode (ILOpCode.Ret);
 			});
 
@@ -683,7 +663,7 @@ sealed class TypeMapAssemblyEmitter
 
 		// UCO wrappers
 		foreach (var uco in proxy.UcoMethods) {
-			var handle = exportEmitter.EmitUcoMethod (uco);
+			var handle = exportMethodDispatchEmitter.EmitUcoMethod (uco);
 			wrapperHandles [uco.WrapperName] = handle;
 		}
 
@@ -694,7 +674,7 @@ sealed class TypeMapAssemblyEmitter
 
 		// RegisterNatives
 		if (proxy.IsAcw) {
-			exportEmitter.EmitRegisterNatives (proxy.NativeRegistrations, wrapperHandles);
+			exportMethodDispatchEmitter.EmitRegisterNatives (proxy.NativeRegistrations, wrapperHandles);
 		}
 	}
 
