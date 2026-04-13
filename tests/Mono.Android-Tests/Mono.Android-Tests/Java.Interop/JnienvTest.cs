@@ -256,7 +256,6 @@ namespace Java.InteropTests
 		}
 
 		[Test, Category ("Export")]
-		[Category ("CoreCLRIgnore")] //TODO: https://github.com/dotnet/android/issues/10069
 		public void CreateTypeWithExportedMethods ()
 		{
 			using (var e = new ContainsExportedMethods ()) {
@@ -269,7 +268,6 @@ namespace Java.InteropTests
 		}
 
 		[Test, Category ("Export")]
-		[Category ("CoreCLRIgnore")] //TODO: https://github.com/dotnet/android/issues/10069
 		public void ActivatedDirectObjectSubclassesShouldBeRegistered ()
 		{
 			if (Build.VERSION.SdkInt <= BuildVersionCodes.GingerbreadMr1)
