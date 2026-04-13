@@ -65,7 +65,7 @@ namespace Java.LangTests
 					MakeGenericMethod (FromJavaObject_T, typeof (int)));
 		}
 
-		[Test]
+		[Test, Category ("TrimmableIgnore")]
 		public void JnienvCreateInstance_RegistersMultipleInstances ()
 		{
 			using (var adapter = new CreateInstance_OverrideAbsListView_Adapter (Application.Context)) {
@@ -108,7 +108,11 @@ namespace Java.LangTests
 	 *
 	 * Alas, this is the pre-4.10 behavior!
 	 */
+	#if TRIMMABLE_TYPEMAP
+	[Register (CreateInstance_OverrideAbsListView_Adapter.JcwType, DoNotGenerateAcw = true)]
+	#else
 	[Register (CreateInstance_OverrideAbsListView_Adapter.JcwType)]
+	#endif
 	public class CreateInstance_OverrideAbsListView_Adapter : AbsListView {
 
 		/* (IntPtr, JniHandleOwnership) ctor is reqiured because AbsListView

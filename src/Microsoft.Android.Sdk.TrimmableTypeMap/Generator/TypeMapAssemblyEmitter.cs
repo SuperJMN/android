@@ -78,7 +78,6 @@ sealed class TypeMapAssemblyEmitter
 	TypeReferenceHandle _systemTypeRef;
 	TypeReferenceHandle _runtimeTypeHandleRef;
 	TypeReferenceHandle _jniTypeRef;
-	TypeReferenceHandle _trimmableNativeRegistrationRef;
 	TypeReferenceHandle _notSupportedExceptionRef;
 	TypeReferenceHandle _runtimeHelpersRef;
 
@@ -88,7 +87,6 @@ sealed class TypeMapAssemblyEmitter
 	MemberReferenceHandle _notSupportedExceptionCtorRef;
 	MemberReferenceHandle _jniObjectReferenceCtorRef;
 	MemberReferenceHandle _jniEnvDeleteRefRef;
-	MemberReferenceHandle _activateInstanceRef;
 	MemberReferenceHandle _withinNewObjectScopeRef;
 	MemberReferenceHandle _ucoAttrCtorRef;
 	BlobHandle _ucoAttrBlobHandle;
@@ -192,8 +190,6 @@ sealed class TypeMapAssemblyEmitter
 			metadata.GetOrAddString ("System"), metadata.GetOrAddString ("RuntimeTypeHandle"));
 		_jniTypeRef = metadata.AddTypeReference (_javaInteropRef,
 			metadata.GetOrAddString ("Java.Interop"), metadata.GetOrAddString ("JniType"));
-		_trimmableNativeRegistrationRef = metadata.AddTypeReference (_pe.MonoAndroidRef,
-			metadata.GetOrAddString ("Android.Runtime"), metadata.GetOrAddString ("TrimmableNativeRegistration"));
 		_notSupportedExceptionRef = metadata.AddTypeReference (_pe.SystemRuntimeRef,
 			metadata.GetOrAddString ("System"), metadata.GetOrAddString ("NotSupportedException"));
 		_runtimeHelpersRef = metadata.AddTypeReference (_pe.SystemRuntimeRef,
@@ -251,14 +247,6 @@ sealed class TypeMapAssemblyEmitter
 				p => {
 					p.AddParameter ().Type ().IntPtr ();
 					p.AddParameter ().Type ().Type (_jniHandleOwnershipRef, true);
-				}));
-
-		_activateInstanceRef = _pe.AddMemberRef (_trimmableNativeRegistrationRef, "ActivateInstance",
-			sig => sig.MethodSignature ().Parameters (2,
-				rt => rt.Void (),
-				p => {
-					p.AddParameter ().Type ().IntPtr ();
-					p.AddParameter ().Type ().Type (_systemTypeRef, false);
 				}));
 
 		// JniEnvironment.get_WithinNewObjectScope() -> bool (static property)
@@ -429,9 +417,9 @@ sealed class TypeMapAssemblyEmitter
 				sig => sig.MethodSignature (isInstanceMethod: true).Parameters (2,
 					rt => rt.Void (),
 					p => {
-						p.AddParameter ().Type ().String ();
-						p.AddParameter ().Type ().Type (_systemTypeRef, false);
-					}));
+					p.AddParameter ().Type ().String ();
+					p.AddParameter ().Type ().Type (_systemTypeRef, false);
+				}));
 		}
 		var typeDefHandle = metadata.AddTypeDefinition (
 			TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.Class,
