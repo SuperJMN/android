@@ -38,8 +38,7 @@ public class TrimmableTypeMapGenerator
 			return new TrimmableTypeMapResult ([], [], allPeers);
 		}
 
-		var preparedManifest = PrepareManifestForRooting (manifestTemplate, manifestConfig);
-		RootManifestReferencedTypes (allPeers, preparedManifest);
+		RootManifestReferencedTypes (allPeers, PrepareManifestForRooting (manifestTemplate, manifestConfig));
 		PropagateDeferredRegistrationToBaseClasses (allPeers);
 
 		var generatedAssemblies = GenerateTypeMapAssemblies (allPeers, systemRuntimeVersion);
@@ -62,7 +61,7 @@ public class TrimmableTypeMapGenerator
 		}
 
 		var manifest = manifestConfig is not null
-			? GenerateManifest (allPeers, assemblyManifestInfo, manifestConfig, preparedManifest)
+			? GenerateManifest (allPeers, assemblyManifestInfo, manifestConfig, manifestTemplate)
 			: null;
 
 		return new TrimmableTypeMapResult (generatedAssemblies, generatedJavaSources, allPeers, manifest, appRegTypes);
@@ -157,7 +156,8 @@ public class TrimmableTypeMapGenerator
 		XName attName = androidNs + "name";
 		var packageName = (string?) root.Attribute ("package") ?? "";
 
-		var componentEntries = new List<(string Name, bool DeferredRegistration, XElement Element)> ();
+		var componentNames = new HashSet<string> (StringComparer.Ordinal);
+		var deferredRegistrationNames = new HashSet<string> (StringComparer.Ordinal);
 		foreach (var element in root.Descendants ()) {
 			switch (element.Name.LocalName) {
 			case "application":
@@ -169,13 +169,17 @@ public class TrimmableTypeMapGenerator
 				var name = (string?) element.Attribute (attName);
 				if (name is not null) {
 					var resolvedName = ManifestNameResolver.Resolve (name, packageName);
-					componentEntries.Add ((resolvedName, element.Name.LocalName is "application" or "instrumentation", element));
+					componentNames.Add (resolvedName);
+
+					if (element.Name.LocalName is "application" or "instrumentation") {
+						deferredRegistrationNames.Add (resolvedName);
+					}
 				}
 				break;
 			}
 		}
 
-		if (componentEntries.Count == 0) {
+		if (componentNames.Count == 0) {
 			return;
 		}
 
@@ -189,15 +193,10 @@ public class TrimmableTypeMapGenerator
 			}
 		}
 
-		foreach (var (name, deferredRegistration, element) in componentEntries) {
+		foreach (var name in componentNames) {
 			if (peersByDotName.TryGetValue (name, out var peers)) {
-				string actualJavaName = JniSignatureHelper.JniNameToJavaName (peers [0].JavaName);
-				if (!string.Equals ((string?) element.Attribute (attName), actualJavaName, StringComparison.Ordinal)) {
-					element.SetAttributeValue (attName, actualJavaName);
-				}
-
 				foreach (var peer in peers) {
-					if (deferredRegistration) {
+					if (deferredRegistrationNames.Contains (name)) {
 						peer.CannotRegisterInStaticConstructor = true;
 					}
 
@@ -218,28 +217,32 @@ public class TrimmableTypeMapGenerator
 	/// TestInstrumentation_1 must also defer — otherwise the base class <c>&lt;clinit&gt;</c> will call
 	/// <c>registerNatives</c> before the managed runtime is ready.
 	/// </summary>
-	static void PropagateDeferredRegistrationToBaseClasses (List<JavaPeerInfo> allPeers)
+	internal static void PropagateDeferredRegistrationToBaseClasses (List<JavaPeerInfo> allPeers)
 	{
-		var peersByJniName = new Dictionary<string, JavaPeerInfo> (StringComparer.Ordinal);
+		// In practice only 1–2 types need propagation (one Application, maybe one
+		// Instrumentation), each with a short base-class chain.  A linear scan per
+		// ancestor is simpler and cheaper than building a Dictionary<JavaName, List<Peer>>
+		// lookup over all peers up front.
 		foreach (var peer in allPeers) {
-			if (!peersByJniName.ContainsKey (peer.JavaName)) {
-				peersByJniName [peer.JavaName] = peer;
+			if (peer.CannotRegisterInStaticConstructor) {
+				PropagateToAncestors (peer.BaseJavaName, allPeers);
 			}
 		}
 
-		foreach (var peer in allPeers) {
-			if (!peer.CannotRegisterInStaticConstructor) {
-				continue;
-			}
+		static void PropagateToAncestors (string? baseJniName, List<JavaPeerInfo> allPeers)
+		{
+			while (baseJniName is not null) {
+				string? nextBase = null;
+				foreach (var basePeer in allPeers) {
+					if (!string.Equals (basePeer.JavaName, baseJniName, StringComparison.Ordinal) || basePeer.DoNotGenerateAcw) {
+						continue;
+					}
 
-			var current = peer;
-			while (current.BaseJavaName is { } baseJniName && peersByJniName.TryGetValue (baseJniName, out var basePeer)) {
-				if (basePeer.DoNotGenerateAcw) {
-					break;
+					basePeer.CannotRegisterInStaticConstructor = true;
+					nextBase = basePeer.BaseJavaName;
 				}
 
-				basePeer.CannotRegisterInStaticConstructor = true;
-				current = basePeer;
+				baseJniName = nextBase;
 			}
 		}
 	}

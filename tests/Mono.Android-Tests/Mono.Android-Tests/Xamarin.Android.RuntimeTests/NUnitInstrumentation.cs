@@ -25,9 +25,6 @@ namespace Xamarin.Android.RuntimeTests
         protected NUnitInstrumentation(IntPtr handle, JniHandleOwnership transfer)
             : base(handle, transfer)
         {
-            if (AppContext.TryGetSwitch ("Microsoft.Android.Runtime.RuntimeFeature.TrimmableTypeMap", out bool trimmableTypeMap) && trimmableTypeMap) {
-                ExcludedCategories = ["SSL", "TrimmableIgnore"];
-            }
         }
 
         protected override IList<TestAssemblyInfo> GetTestAssemblies()
