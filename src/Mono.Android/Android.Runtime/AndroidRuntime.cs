@@ -110,7 +110,6 @@ namespace Android.Runtime {
 			ObjectReferenceManager  = new AndroidObjectReferenceManager ();
 			TypeManager             = typeManager;
 			ValueManager            = valueManager;
-			UseMarshalMemberBuilder = false;
 			JniAddNativeMethodRegistrationAttributePresent = jniAddNativeMethodRegistrationAttributePresent;
 		}
 	}
